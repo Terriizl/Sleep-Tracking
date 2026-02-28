@@ -1,67 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sleep & Yoga Study Tracker</title>
+    <title>Sleep & Yoga Psychological Study</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 1000px;
             margin: 40px auto;
-            background: #f4f6f8;
+            background: #f2f2f7;
         }
         h1 { text-align: center; }
+
         form {
             background: white;
             padding: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             margin-bottom: 20px;
         }
-        input, select {
-            margin: 5px 0;
-            padding: 5px;
-            width: 100%;
-        }
-        button {
-            margin-top: 10px;
+
+        input {
+            margin: 6px 0;
             padding: 8px;
             width: 100%;
-            cursor: pointer;
         }
+
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            cursor: pointer;
+            background: black;
+            color: white;
+            border: none;
+            border-radius: 6px;
+        }
+
         table {
             width: 100%;
             background: white;
             border-collapse: collapse;
+            border-radius: 12px;
+            overflow: hidden;
         }
+
         th, td {
-            border: 1px solid #ddd;
-            padding: 6px;
+            padding: 8px;
             text-align: center;
+            border-bottom: 1px solid #eee;
         }
-        th { background: #e8ecef; }
+
+        th {
+            background: #fafafa;
+        }
+
         .deleteBtn {
-            background: #ff6b6b;
+            background: #ff3b30;
             color: white;
             border: none;
             padding: 4px 8px;
             cursor: pointer;
+            border-radius: 4px;
         }
-        .clearBtn {
-            background: black;
-            color: white;
-            margin-top: 15px;
+
+        canvas {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
 
-<h1>14-Day Sleep & Yoga Study</h1>
+<h1>Sleep & Morning Activation Study</h1>
 
 <form id="dataForm">
     <label>Date</label>
     <input type="date" id="date" required>
 
-    <label>Sleep Hours</label>
-    <input type="number" step="0.1" id="sleep">
+    <label>Bedtime</label>
+    <input type="time" id="bedtime" required>
+
+    <label>Wake-up Time</label>
+    <input type="time" id="waketime" required>
+
+    <label>Yoga Time (minutes)</label>
+    <input type="number" id="yogatime">
 
     <label>Mood (1–10)</label>
     <input type="number" min="1" max="10" id="mood">
@@ -75,12 +100,6 @@
     <label>Focus (1–10)</label>
     <input type="number" min="1" max="10" id="focus">
 
-    <label>Yoga Completed?</label>
-    <select id="yoga">
-        <option value="No">No</option>
-        <option value="Yes">Yes</option>
-    </select>
-
     <button type="submit">Add Entry</button>
 </form>
 
@@ -89,32 +108,39 @@
     <thead>
         <tr>
             <th>Date</th>
-            <th>Sleep</th>
+            <th>Bed</th>
+            <th>Wake</th>
+            <th>Sleep (hrs)</th>
+            <th>Yoga (min)</th>
             <th>Mood</th>
             <th>Anxiety</th>
             <th>Energy</th>
             <th>Focus</th>
-            <th>Yoga</th>
             <th>Delete</th>
         </tr>
     </thead>
     <tbody></tbody>
 </table>
 
-<button class="clearBtn" onclick="clearAll()">Clear All Data</button>
-
-<h2>Averages</h2>
-<p id="averages"></p>
+<h2>Sleep Duration Graph</h2>
+<canvas id="sleepChart"></canvas>
 
 <script>
 let form = document.getElementById("dataForm");
 let tableBody = document.querySelector("#dataTable tbody");
-let averagesText = document.getElementById("averages");
-
 let data = JSON.parse(localStorage.getItem("studyData")) || [];
 
 function save() {
     localStorage.setItem("studyData", JSON.stringify(data));
+}
+
+function calculateSleep(bed, wake) {
+    let bedTime = new Date("1970-01-01T" + bed);
+    let wakeTime = new Date("1970-01-01T" + wake);
+    if (wakeTime < bedTime) {
+        wakeTime.setDate(wakeTime.getDate() + 1);
+    }
+    return ((wakeTime - bedTime) / (1000 * 60 * 60)).toFixed(2);
 }
 
 function deleteEntry(index) {
@@ -123,56 +149,43 @@ function deleteEntry(index) {
     render();
 }
 
-function clearAll() {
-    if (confirm("Are you sure you want to delete all data?")) {
-        data = [];
-        save();
-        render();
-    }
-}
-
 function render() {
     tableBody.innerHTML = "";
 
     data.forEach((entry, index) => {
         let row = `<tr>
             <td>${entry.date}</td>
+            <td>${entry.bedtime}</td>
+            <td>${entry.waketime}</td>
             <td>${entry.sleep}</td>
+            <td>${entry.yogatime}</td>
             <td>${entry.mood}</td>
             <td>${entry.anxiety}</td>
             <td>${entry.energy}</td>
             <td>${entry.focus}</td>
-            <td>${entry.yoga}</td>
             <td><button class="deleteBtn" onclick="deleteEntry(${index})">X</button></td>
         </tr>`;
         tableBody.innerHTML += row;
     });
 
-    if (data.length > 0) {
-        let avg = field => 
-            (data.reduce((a,b)=>a+Number(b[field]||0),0)/data.length).toFixed(2);
-
-        averagesText.innerHTML =
-            `Avg Mood: ${avg("mood")} |
-             Avg Anxiety: ${avg("anxiety")} |
-             Avg Energy: ${avg("energy")} |
-             Avg Focus: ${avg("focus")}`;
-    } else {
-        averagesText.innerHTML = "No data yet.";
-    }
+    updateChart();
 }
 
 form.addEventListener("submit", function(e){
     e.preventDefault();
 
+    let sleepHours = calculateSleep(bedtime.value, waketime.value);
+
     let entry = {
         date: date.value,
-        sleep: sleep.value,
+        bedtime: bedtime.value,
+        waketime: waketime.value,
+        sleep: sleepHours,
+        yogatime: yogatime.value || 0,
         mood: mood.value,
         anxiety: anxiety.value,
         energy: energy.value,
-        focus: focus.value,
-        yoga: yoga.value
+        focus: focus.value
     };
 
     data.push(entry);
@@ -180,6 +193,37 @@ form.addEventListener("submit", function(e){
     render();
     form.reset();
 });
+
+let ctx = document.getElementById("sleepChart").getContext("2d");
+let sleepChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Sleep Hours',
+            data: [],
+            borderRadius: 10
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 12
+            }
+        }
+    }
+});
+
+function updateChart() {
+    sleepChart.data.labels = data.map(d => d.date);
+    sleepChart.data.datasets[0].data = data.map(d => d.sleep);
+    sleepChart.update();
+}
 
 render();
 </script>
