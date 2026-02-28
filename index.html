@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sleep & Yoga Psychological Study</title>
+    <title>Sleep & Morning Activation Study</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -10,64 +10,68 @@
             margin: 40px auto;
             background: #f2f2f7;
         }
+
         h1 { text-align: center; }
 
         form {
             background: white;
             padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            border-radius: 14px;
+            margin-bottom: 25px;
         }
 
         input {
-            margin: 6px 0;
-            padding: 8px;
+            margin: 8px 0;
+            padding: 10px;
             width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ddd;
         }
 
         button {
-            margin-top: 10px;
-            padding: 10px;
+            margin-top: 12px;
+            padding: 12px;
             width: 100%;
             cursor: pointer;
             background: black;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
         }
 
         table {
             width: 100%;
             background: white;
             border-collapse: collapse;
-            border-radius: 12px;
+            border-radius: 14px;
             overflow: hidden;
         }
 
         th, td {
-            padding: 8px;
+            padding: 10px;
             text-align: center;
             border-bottom: 1px solid #eee;
         }
 
         th {
             background: #fafafa;
+            font-weight: 600;
         }
 
         .deleteBtn {
             background: #ff3b30;
             color: white;
             border: none;
-            padding: 4px 8px;
+            padding: 6px 10px;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 6px;
         }
 
         canvas {
             background: white;
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 20px;
+            border-radius: 14px;
+            padding: 20px;
+            margin-top: 25px;
         }
     </style>
 </head>
@@ -111,7 +115,7 @@
             <th>Bed</th>
             <th>Wake</th>
             <th>Sleep (hrs)</th>
-            <th>Yoga (min)</th>
+            <th>Yoga</th>
             <th>Mood</th>
             <th>Anxiety</th>
             <th>Energy</th>
@@ -126,18 +130,29 @@
 <canvas id="sleepChart"></canvas>
 
 <script>
-let form = document.getElementById("dataForm");
-let tableBody = document.querySelector("#dataTable tbody");
-let data = JSON.parse(localStorage.getItem("studyData")) || [];
+const form = document.getElementById("dataForm");
+const tableBody = document.querySelector("#dataTable tbody");
+
+let data = [];
+
+// Reset incompatible old data
+try {
+    const stored = JSON.parse(localStorage.getItem("studyData"));
+    if (Array.isArray(stored)) {
+        data = stored;
+    }
+} catch {
+    data = [];
+}
 
 function save() {
     localStorage.setItem("studyData", JSON.stringify(data));
 }
 
 function calculateSleep(bed, wake) {
-    let bedTime = new Date("1970-01-01T" + bed);
-    let wakeTime = new Date("1970-01-01T" + wake);
-    if (wakeTime < bedTime) {
+    const bedTime = new Date(`1970-01-01T${bed}:00`);
+    let wakeTime = new Date(`1970-01-01T${wake}:00`);
+    if (wakeTime <= bedTime) {
         wakeTime.setDate(wakeTime.getDate() + 1);
     }
     return ((wakeTime - bedTime) / (1000 * 60 * 60)).toFixed(2);
@@ -153,39 +168,42 @@ function render() {
     tableBody.innerHTML = "";
 
     data.forEach((entry, index) => {
-        let row = `<tr>
-            <td>${entry.date}</td>
-            <td>${entry.bedtime}</td>
-            <td>${entry.waketime}</td>
-            <td>${entry.sleep}</td>
-            <td>${entry.yogatime}</td>
-            <td>${entry.mood}</td>
-            <td>${entry.anxiety}</td>
-            <td>${entry.energy}</td>
-            <td>${entry.focus}</td>
-            <td><button class="deleteBtn" onclick="deleteEntry(${index})">X</button></td>
-        </tr>`;
+        const row = `
+            <tr>
+                <td>${entry.date || ""}</td>
+                <td>${entry.bedtime || ""}</td>
+                <td>${entry.waketime || ""}</td>
+                <td>${entry.sleep || ""}</td>
+                <td>${entry.yogatime || 0}</td>
+                <td>${entry.mood || ""}</td>
+                <td>${entry.anxiety || ""}</td>
+                <td>${entry.energy || ""}</td>
+                <td>${entry.focus || ""}</td>
+                <td><button class="deleteBtn" onclick="deleteEntry(${index})">X</button></td>
+            </tr>
+        `;
         tableBody.innerHTML += row;
     });
 
     updateChart();
 }
 
-form.addEventListener("submit", function(e){
+form.addEventListener("submit", function(e) {
     e.preventDefault();
 
-    let sleepHours = calculateSleep(bedtime.value, waketime.value);
-
-    let entry = {
-        date: date.value,
-        bedtime: bedtime.value,
-        waketime: waketime.value,
-        sleep: sleepHours,
-        yogatime: yogatime.value || 0,
-        mood: mood.value,
-        anxiety: anxiety.value,
-        energy: energy.value,
-        focus: focus.value
+    const entry = {
+        date: document.getElementById("date").value,
+        bedtime: document.getElementById("bedtime").value,
+        waketime: document.getElementById("waketime").value,
+        sleep: calculateSleep(
+            document.getElementById("bedtime").value,
+            document.getElementById("waketime").value
+        ),
+        yogatime: document.getElementById("yogatime").value || 0,
+        mood: document.getElementById("mood").value,
+        anxiety: document.getElementById("anxiety").value,
+        energy: document.getElementById("energy").value,
+        focus: document.getElementById("focus").value
     };
 
     data.push(entry);
@@ -194,15 +212,16 @@ form.addEventListener("submit", function(e){
     form.reset();
 });
 
-let ctx = document.getElementById("sleepChart").getContext("2d");
-let sleepChart = new Chart(ctx, {
-    type: 'bar',
+const ctx = document.getElementById("sleepChart").getContext("2d");
+
+const sleepChart = new Chart(ctx, {
+    type: "bar",
     data: {
         labels: [],
         datasets: [{
-            label: 'Sleep Hours',
+            label: "Sleep Hours",
             data: [],
-            borderRadius: 10
+            borderRadius: 12
         }]
     },
     options: {
