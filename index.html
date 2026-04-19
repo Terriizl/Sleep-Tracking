@@ -167,6 +167,8 @@ function deleteEntry(index) {
 function render() {
     tableBody.innerHTML = "";
 
+    data.sort((a, b) => new Date(a.date) - new Date(b.date));
+
     data.forEach((entry, index) => {
         const row = `
         <tr>
