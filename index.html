@@ -1,235 +1,318 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sleep & Mental Health Study</title>
+    <title>Sleep & Morning Activation Study</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            max-width: 1000px;
-            margin: 40px auto;
+@@ -11,124 +12,86 @@
             background: #f2f2f7;
         }
 
-        h1, h2 { text-align: center; }
+        h1 { text-align: center; }
 
         form {
             background: white;
             padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            border-radius: 14px;
+            margin-bottom: 25px;
         }
 
         input {
-            margin: 6px 0;
-            padding: 8px;
+            margin: 8px 0;
+            padding: 10px;
             width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ddd;
         }
 
         button {
-            margin-top: 10px;
-            padding: 10px;
+            margin-top: 12px;
+            padding: 12px;
             width: 100%;
+            cursor: pointer;
             background: black;
             color: white;
             border: none;
+            border-radius: 8px;
         }
 
         table {
             width: 100%;
             background: white;
             border-collapse: collapse;
+            border-radius: 14px;
+            overflow: hidden;
         }
 
         th, td {
-            padding: 8px;
+            padding: 10px;
             text-align: center;
             border-bottom: 1px solid #eee;
         }
 
-        canvas {
-            background: white;
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 12px;
+        th {
+            background: #fafafa;
+            font-weight: 600;
+
+
         }
 
         .deleteBtn {
-            background: red;
+            background: #ff3b30;
             color: white;
             border: none;
-            padding: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        canvas {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            margin-top: 25px;
         }
     </style>
 </head>
 
 <body>
 
-<h1>Sleep & Mental Health Study</h1>
+<h1>Sleep & Morning Activation Study</h1>
 
 <form id="dataForm">
+    <label>Date</label>
     <input type="date" id="date" required>
+
+    <label>Bedtime</label>
     <input type="time" id="bedtime" required>
+
+    <label>Wake-up Time</label>
     <input type="time" id="waketime" required>
-    <input type="number" id="yogatime" placeholder="Yoga (min)">
-    <input type="number" id="mood" placeholder="Mood (1-10)">
-    <input type="number" id="anxiety" placeholder="Anxiety (1-10)">
-    <input type="number" id="energy" placeholder="Energy (1-10)">
-    <input type="number" id="focus" placeholder="Focus (1-10)">
+
+    <label>Yoga Time (minutes)</label>
+    <input type="number" id="yogatime">
+
+    <label>Mood (1–10)</label>
+    <input type="number" min="1" max="10" id="mood">
+
+    <label>Anxiety (1–10)</label>
+    <input type="number" min="1" max="10" id="anxiety">
+
+    <label>Energy (1–10)</label>
+    <input type="number" min="1" max="10" id="energy">
+
+    <label>Focus (1–10)</label>
+    <input type="number" min="1" max="10" id="focus">
+
     <button type="submit">Add Entry</button>
 </form>
 
+<h2>Data Log</h2>
 <table id="dataTable">
-<thead>
-<tr>
-<th>Date</th><th>Sleep</th><th>Mood</th><th>Anxiety</th><th>Energy</th><th>Focus</th><th>Delete</th>
-</tr>
-</thead>
-<tbody></tbody>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Bed</th>
+            <th>Wake</th>
+            <th>Sleep (hrs)</th>
+            <th>Yoga</th>
+            <th>Mood</th>
+            <th>Anxiety</th>
+            <th>Energy</th>
+            <th>Focus</th>
+            <th>Delete</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
 </table>
 
-<h2>Sleep</h2>
+<h2>Sleep Duration Graph</h2>
 <canvas id="sleepChart"></canvas>
-
+    
 <h2>Mood</h2>
 <canvas id="moodChart"></canvas>
 
-<h2>Energy</h2>
-<canvas id="energyChart"></canvas>
-
-<h2>Anxiety</h2>
-<canvas id="anxietyChart"></canvas>
-
-<h2>Focus</h2>
+@@ -142,150 +105,127 @@ <h2>Focus</h2>
 <canvas id="focusChart"></canvas>
 
 <script>
+const form = document.getElementById("dataForm");
+const tableBody = document.querySelector("#dataTable tbody");
+
 let data = JSON.parse(localStorage.getItem("studyData")) || [];
 
 function save() {
     localStorage.setItem("studyData", JSON.stringify(data));
 }
 
-function calcSleep(bed, wake) {
-    let b = new Date("1970-01-01T" + bed);
-    let w = new Date("1970-01-01T" + wake);
-    if (w <= b) w.setDate(w.getDate() + 1);
-    return (w - b) / 3600000;
+function calculateSleep(bed, wake) {
+    const bedTime = new Date(`1970-01-01T${bed}:00`);
+    let wakeTime = new Date(`1970-01-01T${wake}:00`);
+    if (wakeTime <= bedTime) wakeTime.setDate(wakeTime.getDate() + 1);
+    return ((wakeTime - bedTime) / (1000 * 60 * 60)).toFixed(2);
+}
+
+function deleteEntry(index) {
+    data.splice(index, 1);
+    save();
+    render();
 }
 
 function render() {
+    tableBody.innerHTML = "";
 
-    // SORT BY DATE
-    data.sort((a,b)=> new Date(a.date)-new Date(b.date));
+    data.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    let table = document.querySelector("#dataTable tbody");
-    table.innerHTML = "";
 
-    data.forEach((d,i)=>{
-        table.innerHTML += `
+
+
+
+    data.forEach((entry, index) => {
+        const row = `
         <tr>
-            <td>${d.date}</td>
-            <td>${d.sleep.toFixed(2)}</td>
-            <td>${d.mood}</td>
-            <td>${d.anxiety}</td>
-            <td>${d.energy}</td>
-            <td>${d.focus}</td>
-            <td><button class="deleteBtn" onclick="deleteEntry(${i})">X</button></td>
+            <td>${entry.date || ""}</td>
+            <td>${entry.bedtime || ""}</td>
+            <td>${entry.waketime || ""}</td>
+            <td>${entry.sleep || ""}</td>
+            <td>${entry.yogatime || 0}</td>
+            <td>${entry.mood || ""}</td>
+            <td>${entry.anxiety || ""}</td>
+            <td>${entry.energy || ""}</td>
+            <td>${entry.focus || ""}</td>
+            <td><button class="deleteBtn" onclick="deleteEntry(${index})">X</button></td>
         </tr>`;
+        tableBody.innerHTML += row;
     });
 
     updateCharts();
 }
 
-function deleteEntry(i){
-    data.splice(i,1);
-    save();
-    render();
-}
+form.addEventListener("submit", function(e) {
 
-document.getElementById("dataForm").addEventListener("submit", e=>{
+
+
+
+
+
     e.preventDefault();
 
-    let entry = {
-        date: date.value,
-        sleep: calcSleep(bedtime.value, waketime.value),
-        mood: Number(mood.value),
-        anxiety: Number(anxiety.value),
-        energy: Number(energy.value),
-        focus: Number(focus.value)
+    const entry = {
+        date: document.getElementById("date").value,
+        bedtime: document.getElementById("bedtime").value,
+        waketime: document.getElementById("waketime").value,
+        sleep: calculateSleep(
+            document.getElementById("bedtime").value,
+            document.getElementById("waketime").value
+        ),
+        yogatime: document.getElementById("yogatime").value || 0,
+        mood: Number(document.getElementById("mood").value),
+        anxiety: Number(document.getElementById("anxiety").value),
+        energy: Number(document.getElementById("energy").value),
+        focus: Number(document.getElementById("focus").value)
     };
 
     data.push(entry);
     save();
     render();
-    e.target.reset();
+    form.reset();
 });
 
-// ===== CHARTS =====
-function createChart(id){
-    return new Chart(document.getElementById(id), {
+
+// ===== FILTER DATA =====
+function getFilteredData() {
+    return data.filter(d => d.date >= "2026-03-02" && d.date <= "2026-03-14");
+}
+
+function getMarch1() {
+    return data.find(d => d.date === "2026-03-01");
+}
+
+
+
+
+
+
+
+// ===== CREATE CHART =====
+function createLineChart(canvasId, label, key) {
+    const ctx = document.getElementById(canvasId).getContext("2d");
+
+
+    return new Chart(ctx, {
         type: "line",
-        data: { labels: [], datasets:[{ data:[], tension:0.3 }] },
-        options:{ scales:{ y:{ beginAtZero:true, max:10 } } }
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: label,
+                    data: [],
+                    tension: 0.3,
+                    spanGaps: false
+                },
+                {
+                    label: "March 1",
+                    data: [],
+                    pointRadius: 6,
+                    showLine: false
+                }
+            ]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 10 }
+            }
+        }
     });
 }
 
-let sleepChart = createChart("sleepChart");
-let moodChart = createChart("moodChart");
-let energyChart = createChart("energyChart");
-let anxietyChart = createChart("anxietyChart");
-let focusChart = createChart("focusChart");
+// Create charts
+const moodChart = createLineChart("moodChart", "Mood", "mood");
+const energyChart = createLineChart("energyChart", "Energy", "energy");
+const anxietyChart = createLineChart("anxietyChart", "Anxiety", "anxiety");
+const focusChart = createLineChart("focusChart", "Focus", "focus");
 
-// FILTER (March 2–14)
-function getFiltered(){
-    return data.filter(d=> d.date >= "2026-03-02" && d.date <= "2026-03-14");
-}
 
-// March 1 point
-function getMarch1(){
-    return data.find(d=> d.date==="2026-03-01");
-}
 
-function updateCharts(){
 
-    let filtered = getFiltered();
-    let march1 = getMarch1();
+// ===== UPDATE CHARTS =====
+function updateCharts() {
+    const filtered = getFilteredData();
+    const march1 = getMarch1();
 
-    let labels = filtered.map(d=>d.date);
+    const labels = filtered.map(d => d.date);
 
-    function update(chart,key){
-
+    function update(chart, key) {
         chart.data.labels = labels;
+        chart.data.datasets[0].data = filtered.map(d => Number(d[key]) || 0);
 
-        chart.data.datasets[0].data =
-            filtered.map(d=> Number(d[key]) || 0);
+        if (march1) {
+            chart.data.datasets[1].data = [Number(march1[key]) || 0];
+            chart.data.datasets[1].labels = ["2026-03-01"];
 
-        // March 1 isolated point
-        if(march1){
-            chart.data.datasets[1] = {
-                data:[Number(march1[key])],
-                showLine:false,
-                pointRadius:6
-            };
+
+
+
+
+
+
         }
 
         chart.update();
     }
 
-    update(moodChart,"mood");
-    update(energyChart,"energy");
-    update(anxietyChart,"anxiety");
-    update(focusChart,"focus");
+    update(moodChart, "mood");
+    update(energyChart, "energy");
+    update(anxietyChart, "anxiety");
+    update(focusChart, "focus");
 
-    // sleep graph
-    sleepChart.data.labels = data.map(d=>d.date);
-    sleepChart.data.datasets[0].data = data.map(d=>d.sleep);
-    sleepChart.update();
+
+
+
+
 }
 
 render();
-</script>
-
-</body>
-</html>
