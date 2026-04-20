@@ -91,18 +91,23 @@
 
 <h2>Sleep</h2>
 <canvas id="sleepChart"></canvas>
+<button onclick="downloadChart('sleepChart', 'sleep.png')">Download</button>
 
 <h2>Mood</h2>
 <canvas id="moodChart"></canvas>
+<button onclick="downloadChart('moodChart', 'mood.png')">Download</button>
 
 <h2>Energy</h2>
 <canvas id="energyChart"></canvas>
+<button onclick="downloadChart('energyChart', 'energy.png')">Download</button>
 
 <h2>Anxiety</h2>
 <canvas id="anxietyChart"></canvas>
+<button onclick="downloadChart('anxietyChart', 'anxiety.png')">Download</button>
 
 <h2>Focus</h2>
 <canvas id="focusChart"></canvas>
+<button onclick="downloadChart('focusChart', 'focus.png')">Download</button>
 
 <script>
 let data = JSON.parse(localStorage.getItem("studyData")) || [];
@@ -228,6 +233,21 @@ function updateCharts(){
     sleepChart.data.labels = data.map(d=>d.date);
     sleepChart.data.datasets[0].data = data.map(d=>d.sleep);
     sleepChart.update();
+}
+
+    function downloadChart(chartId, filename) {
+    const canvas = document.getElementById(chartId);
+
+    // Convert chart to image
+    const image = canvas.toDataURL("image/png");
+
+    // Create download link
+    const link = document.createElement("a");
+    link.href = image;
+    link.download = filename;
+
+    // Trigger download
+    link.click();
 }
 
 render();
